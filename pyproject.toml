@@ -12,6 +12,7 @@ dependencies = [
     "pandas>=2.3.3",
     "polars>=1.35.2",
     "pyarrow>=22.0.0",
+    "skops>=0.13.0",
 ]
 
 [build-system]
