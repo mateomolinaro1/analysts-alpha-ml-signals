@@ -3,13 +3,13 @@
     {
         "RANDOM_FOREST":
         {
-            "SKOPS": "...",
-            "MANIFEST": "..."
+            "SKOPS": "random_forest.skops",
+            "MANIFEST": "random_forest.manifest"
         },
         "ELASTIC_NET":
         {
-            "SKOPS": "...",
-            "MANIFEST": "..."
+            "SKOPS": "elastic_net.skops",
+            "MANIFEST": "elastic_net.manifest"
         }
     },
     "HYPERPARAMETERS":

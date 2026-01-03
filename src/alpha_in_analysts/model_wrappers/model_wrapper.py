@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from skops.io import dump, load
 from sklearn.base import BaseEstimator as SklearnModel
 import json
+import logging
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -9,6 +10,8 @@ from typing import Union
 
 MatrixLike = Union[pd.DataFrame, pl.DataFrame, np.ndarray]
 VectorLike = Union[pd.Series, pl.Series, np.ndarray]
+
+logger = logging.getLogger(__name__)
 
 
 class ModelWrapper(ABC):
@@ -84,6 +87,8 @@ class ModelWrapper(ABC):
         y : pd.Series | pl.Series | np.ndarray
             Target variable for training.
         """
+        logger.info(f"\t\tFitting model {self.__class__.__name__} with data X: {X.shape}, y: {y.shape}")
+
         self._ensure_model()
         X_arr = self._coerce_X(X, for_fit=True)
         y_arr = self._coerce_y(y)
@@ -120,6 +125,8 @@ class ModelWrapper(ABC):
         np.ndarray
             Predictions from the model.
         """
+        logger.info(f"\t\tPredicting with model {self.__class__.__name__} on data X: {X.shape}")
+
         self._check_fitted()
         X_arr = self._coerce_X(X, for_fit=False)
 
@@ -236,6 +243,8 @@ class ModelWrapper(ABC):
         dump(self.model, "saved_models/" + model_path)
         with open("saved_models/" + manifest_path, 'w') as f:
             json.dump(self.manifest, f)
+        
+        logger.info(f"Model saved to saved_models/{model_path} and manifest to saved_models/{manifest_path}")
 
     def load_model(self, model_path: str = None, manifest_path: str = None) -> None:
         """
@@ -263,3 +272,5 @@ class ModelWrapper(ABC):
         self.feature_names = self.manifest.get("feature_names")
         self.nb_features = self.manifest.get("nb_features")
         self.is_fitted = True
+
+        logger.info(f"Model loaded from saved_models/{model_path} and manifest from saved_models/{manifest_path}")

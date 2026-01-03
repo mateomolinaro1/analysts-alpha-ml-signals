@@ -1,5 +1,25 @@
 {
     "MODEL": "RANDOM_FOREST",
+    "DATA":
+    {
+        "ESTIMATES_PATH": "s3://alpha-in-analysts-storage/data/estimates.parquet",
+        "PRICES_PATH": "s3://alpha-in-analysts-storage/data/prices.parquet"
+    },
+    "RUN":
+    {
+        "TRAINING":
+        {
+            "START_DATE": "2000-01",
+            "END_DATE": "2019-12",
+            "WARMUP_MONTHS": 12
+        },
+        "TESTING":
+        {
+            "START_DATE": "2019-01",
+            "END_DATE": "2025-11",
+            "WARMUP_MONTHS": 12
+        }
+    },
     "BOOK":
     {
         "VALIDITY_LENGTH_MONTHS": 12,

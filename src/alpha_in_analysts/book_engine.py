@@ -1,8 +1,11 @@
 import polars as pl
 from datetime import date, datetime, timedelta
 from .utils.helpers import _validate_date
+import logging
 
 DateLike = date | str | datetime
+logger = logging.getLogger(__name__)
+
 
 class BookEngine:
     """
@@ -98,6 +101,8 @@ class BookEngine:
         polars.DataFrame
             DataFrame containing the implied portfolios
         """
+        logger.info("\t\tBuilding book at snapshot date: %s", str(snapshot_date))
+        
         t = _validate_date(snapshot_date)
         df_tp_valid = self._filter_valid_tp(self.df_tp, t)
 

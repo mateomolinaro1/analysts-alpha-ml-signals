@@ -8,6 +8,10 @@ class Config:
     Configuration object to hold settings for the application.
     """
     def __init__(self):
+        # Data path configurations
+        self.target_price_path: str = None
+        self.prices_path: str = None
+
         # Book related configurations
         self.decay_halflife: int = None
         self.validity_length: int = None
@@ -23,6 +27,18 @@ class Config:
         self.model_name: str = None
         self.model_paths: dict = {}
         self.model_params: dict = {}
+
+        # Backtest / Orchestrator related configurations
+        self.train_start_date: str = None
+        self.train_end_date: str = None
+        self.warmup_train_months: int = 24
+
+        self.test_start_date: str = None
+        self.test_end_date: str = None
+        self.warmup_test_months: int = 24
+
+        self._load_run_config()
+        self._load_model_config()
 
     def _load_run_config(self, filepath: str = "configs/run_config.json"):
         """
@@ -44,6 +60,17 @@ class Config:
             self.transfo_k_neg = config.get('PORTFOLIO').get('TRANSFO_K_NEG', 12.0)
             self.construction_method = config.get('PORTFOLIO').get('METHOD', "paper")
             self.normalize_weights = config.get('PORTFOLIO').get('NORMALIZE_WEIGHTS', False)
+
+            self.train_start_date = config.get('RUN').get('TRAINING').get('START_DATE')
+            self.train_end_date = config.get('RUN').get('TRAINING').get('END_DATE')
+            self.warmup_train_months = config.get('RUN').get('TRAINING').get('WARMUP_MONTHS', 24)
+
+            self.test_start_date = config.get('RUN').get('TESTING').get('START_DATE')
+            self.test_end_date = config.get('RUN').get('TESTING').get('END_DATE')
+            self.warmup_test_months = config.get('RUN').get('TESTING').get('WARMUP_MONTHS', 24)
+
+            self.target_price_path = config.get('DATA').get('ESTIMATES_PATH')
+            self.prices_path = config.get('DATA').get('PRICES_PATH')
 
     def _load_model_config(self, filepath: str = "configs/ml_config.json"):
         """
