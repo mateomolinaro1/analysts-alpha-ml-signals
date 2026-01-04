@@ -11,3 +11,10 @@ wheels/
 
 # S3 credentials
 .env
+
+.idea/
+.git
+
+data/*
+!data/.gitkeep
+sandbox.txt
