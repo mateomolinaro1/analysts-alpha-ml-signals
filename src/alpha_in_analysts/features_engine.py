@@ -60,6 +60,7 @@ class FeaturesEngine(BookEngine):
         self.df_books = None
         self.df_books_wide = None
         self.pnl_all_analysts = None
+        self.coverage = None
 
     def _build_books(self,
                      return_bool: bool = False
@@ -293,6 +294,15 @@ class FeaturesEngine(BookEngine):
             df_weights_pivoted=df_weights_pivoted
         )
 
+        # Compute coverage i.e. non-null weights across assets at each date
+        df_coverage = df_weights_pivoted.select([
+            "date",
+            pl.sum_horizontal(pl.all().exclude("date").is_not_null()).alias("coverage")
+        ])
+        df_coverage = df_coverage.with_columns(
+            pl.lit(analyst_id).alias("analyst_id")
+        )
+
         ptf = CreatePortfolio(
             returns=df_returns,
             weights=df_weights_pivoted,
@@ -313,7 +323,10 @@ class FeaturesEngine(BookEngine):
         strat_ret = strat_ret.with_columns(
             pl.lit(analyst_id).alias("analyst_id")
         )
-        return strat_ret
+        return {
+            "strat_ret": strat_ret,
+            "df_coverage": df_coverage
+        }
 
     def _build_pnl_all_analysts(self,
                                 tc: int|float = 10,
@@ -345,19 +358,25 @@ class FeaturesEngine(BookEngine):
 
         for i, analyst_id in enumerate(analyst_ids):
             print(f"Building PnL for analyst {analyst_id} ({i+1}/{len(analyst_ids)})")
-            strat_ret_tmp = self._build_pnl_per_analyst(
+            res = self._build_pnl_per_analyst(
                 analyst_id=analyst_id,
                 tc=tc,
                 strategy_name=strategy_name
             )
+            strat_ret_tmp = res["strat_ret"]
+            df_coverage_tmp = res["df_coverage"]
 
             if i == 0:
                 strat_ret = strat_ret_tmp
+                coverage = df_coverage_tmp
             else:
                 strat_ret = pl.concat([strat_ret, strat_ret_tmp], how="vertical")
+                coverage = pl.concat([coverage, df_coverage_tmp], how="vertical")
 
         if self.pnl_all_analysts is None:
             self.pnl_all_analysts = strat_ret
+        if self.coverage is None:
+            self.coverage = coverage
         if ret_bool:
             return strat_ret
 
@@ -521,6 +540,176 @@ class FeaturesEngine(BookEngine):
 
         return mean_ret_pct_nm
 
+    def _build_sharpe(self, up_to_date: str, n: int = 12, pct: bool = False):
+        """
+        Annualized Sharpe ratio over the last n months (rf = 0).
+
+        Parameters
+        ----------
+        up_to_date : str
+            Date at which to compute the feature (formation date).
+        n : int
+            Lookback period (in months) for Sharpe ratio.
+        pct : bool
+            Whether to return the percentile rank of the Sharpe ratio.
+        """
+        up_to_date_pl = pl.Series([up_to_date]).str.strptime(pl.Date).item()
+
+        window = (
+            self.pnl_all_analysts
+            .filter(pl.col("date") <= up_to_date_pl)
+            .sort(["analyst_id", "date"])
+            .group_by("analyst_id")
+            .tail(n)
+        )
+
+        sharpe_nm = (
+            window
+            .group_by("analyst_id")
+            .agg([
+                pl.col("strat_ret").count().alias("n_obs"),
+                pl.len().alias("n_expected"),
+                pl.col("strat_ret").mean().alias("mean_ret"),
+                pl.col("strat_ret").std().alias("std_ret"),
+            ])
+            .with_columns(
+                (
+                    pl.when(
+                        (pl.col("n_obs") == pl.col("n_expected"))
+                        & (pl.col("std_ret") > 0)
+                    )
+                    .then(pl.sqrt(pl.lit(12.0)) * pl.col("mean_ret") / pl.col("std_ret"))
+                    .otherwise(None)
+                ).alias(f"sharpe_{n}m")
+            )
+            .select(["analyst_id", f"sharpe_{n}m"])
+        )
+
+        if not pct:
+            return sharpe_nm
+
+        sharpe_pct_nm = sharpe_nm.with_columns(
+            (
+                    (pl.col(f"sharpe_{n}m").rank(method="average") - 1)
+                    / (pl.col(f"sharpe_{n}m").count() - 1)
+            ).alias(f"sharpe_{n}m_pct")
+        )
+
+        return sharpe_pct_nm
+
+    def _build_sortino(self, up_to_date: str, n: int = 6, pct: bool = False):
+        """
+        Annualized Sortino ratio over the last n months (rf = 0).
+
+        Parameters
+        ----------
+        up_to_date : str
+            Date at which to compute the feature (formation date).
+        n : int
+            Lookback period (in months).
+        pct : bool
+            Whether to return the percentile rank of the Sortino ratio.
+        """
+        up_to_date_pl = pl.Series([up_to_date]).str.strptime(pl.Date).item()
+
+        window = (
+            self.pnl_all_analysts
+            .filter(pl.col("date") <= up_to_date_pl)
+            .sort(["analyst_id", "date"])
+            .group_by("analyst_id")
+            .tail(n)
+        )
+
+        sortino_nm = (
+            window
+            .group_by("analyst_id")
+            .agg([
+                pl.col("strat_ret").count().alias("n_obs"),
+                pl.len().alias("n_expected"),
+                pl.col("strat_ret").mean().alias("mean_ret"),
+                pl.col("strat_ret")
+                .filter(pl.col("strat_ret") < 0)
+                .std()
+                .alias("downside_std"),
+            ])
+            .with_columns(
+                (
+                    pl.when(
+                        (pl.col("n_obs") == pl.col("n_expected")) &
+                        (pl.col("downside_std") > 0)
+                    )
+                    .then(
+                        pl.col("mean_ret") / pl.col("downside_std") * (12 ** 0.5)
+                    )
+                    .otherwise(None)
+                ).alias(f"sortino_{n}m")
+            )
+            .select(["analyst_id", f"sortino_{n}m"])
+        )
+
+        if not pct:
+            return sortino_nm
+
+        sortino_pct_nm = sortino_nm.with_columns(
+            (
+                    (pl.col(f"sortino_{n}m").rank(method="average") - 1)
+                    / (pl.col(f"sortino_{n}m").count() - 1)
+            ).alias(f"sortino_{n}m_pct")
+        )
+
+        return sortino_pct_nm
+
+    def _build_mean_coverage(self, up_to_date:str, n:int=6, pct:bool=False):
+        """
+        Mean coverage over the last n months.
+        Parameters
+        ----------
+        up_to_date : str
+            Date at which to compute the feature (formation date).
+        n : int
+            Lookback period (in months) for mean return feature.
+        pct : bool
+            Whether to return the percentile rank of the mean return.
+        """
+        up_to_date_pl = pl.Series([up_to_date]).str.strptime(pl.Date).item()
+
+        window = (
+            self.coverage
+            .filter(pl.col("date") <= up_to_date_pl)
+            .sort(["analyst_id", "date"])
+            .group_by("analyst_id")
+            .tail(n)
+        )
+
+        mean_coverage_nm = (
+            window
+            .group_by("analyst_id")
+            .agg([
+                pl.col("coverage").count().alias("n_obs"),
+                pl.len().alias("n_expected"),
+                pl.col("coverage").mean().alias(f"coverage_{n}m"),
+            ])
+            .with_columns(
+                pl.when(pl.col("n_obs") == pl.col("n_expected"))
+                .then(pl.col(f"coverage_{n}m"))
+                .otherwise(None)
+                .alias(f"coverage_{n}m")
+            )
+            .select(["analyst_id", f"coverage_{n}m"])
+        )
+
+        if not pct:
+            return mean_coverage_nm
+
+        mean_coverage_pct_nm = mean_coverage_nm.with_columns(
+            (
+                    (pl.col(f"coverage_{n}m").rank(method="average") - 1)
+                    / (pl.col(f"coverage_{n}m").count() - 1)
+            ).alias(f"coverage_{n}m_pct")
+        )
+
+        return mean_coverage_pct_nm
+
     def build_all_features(self,
                            up_to_date:str,
                            lookback_perf_pct:int=12,
@@ -557,6 +746,16 @@ class FeaturesEngine(BookEngine):
                 )
             except Exception as e:
                 print("Could not load pnl_all_analysts from S3, building it locally.")
+                self._build_pnl_all_analysts(ret_bool=False)
+
+        if self.coverage is None:
+            try:
+                self.coverage = s3Utils.pull_parquet_file_from_s3(
+                    path="s3://alpha-in-analysts-storage/data/coverage.parquet",
+                    to_polars=True
+                )
+            except Exception as e:
+                print("Could not load coverage from S3, building it locally.")
                 self._build_pnl_all_analysts(ret_bool=False)
 
         perf_pct = self._build_cum_perf(up_to_date=up_to_date,
