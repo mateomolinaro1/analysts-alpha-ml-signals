@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # start = time.time()
 # df_tp = s3Utils.pull_parquet_file_from_s3(path="s3://alpha-in-analysts-storage/data/estimates.parquet", to_polars=True)
 # df_prices = s3Utils.pull_parquet_file_from_s3(path="s3://alpha-in-analysts-storage/data/prices.parquet", to_polars=True)
-
+    
 # logger.info("Data loaded from S3 in %s seconds", round(time.time() - start, 2))
 
 # from src.alpha_in_analysts.book_engine import BookEngine

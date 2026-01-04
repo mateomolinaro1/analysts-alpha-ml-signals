@@ -1,0 +1,29 @@
+{
+    "PATH":
+    {
+        "RANDOM_FOREST":
+        {
+            "SKOPS": "random_forest.skops",
+            "MANIFEST": "random_forest.manifest"
+        },
+        "ELASTIC_NET":
+        {
+            "SKOPS": "elastic_net.skops",
+            "MANIFEST": "elastic_net.manifest"
+        }
+    },
+    "HYPERPARAMETERS":
+    {
+        "RANDOM_FOREST":
+        {
+            "N_ESTIMATORS": 100,
+            "MAX_DEPTH": 10,
+            "MIN_SAMPLES_SPLIT": 2
+        },
+        "ELASTIC_NET":
+        {
+            "ALPHA": 1.0,
+            "L1_RATIO": 0.5
+        }
+    }
+}
