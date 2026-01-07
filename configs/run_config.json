@@ -9,6 +9,27 @@
     {
         "BASE_BACKTEST": "s3://alpha-in-analysts-storage/output/"
     },
+    "FEATURES": {
+        "START_DATE_FEATURES": "2002-01-31",
+
+        "LOOKBACK_PERF": 12,
+        "LOOKBACK_RECENT_PERF": 6,
+
+        "LOOKBACK_VOL": 12,
+        "LOOKBACK_RECENT_VOL": 6,
+
+        "LOOKBACK_MEAN_RET": 12,
+        "LOOKBACK_RECENT_MEAN_RET": 6,
+
+        "LOOKBACK_SHARPE": 12,
+        "LOOKBACK_RECENT_SHARPE": 6,
+
+        "LOOKBACK_SORTINO": 12,
+        "LOOKBACK_RECENT_SORTINO": 6,
+
+        "LOOKBACK_COVERAGE": 12,
+        "LOOKBACK_RECENT_COVERAGE": 6
+    },
     "RUN":
     {
         "TRAINING":

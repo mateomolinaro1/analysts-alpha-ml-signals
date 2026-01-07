@@ -50,8 +50,8 @@ class Orchestrator:
         """ 
         self._create_model()
 
-        end_train = helper ...
-        res = features.up_to_date(end_train)
+        end_train = ...
+        res = ...
 
         X_train = res.drop(columns=["date", "analyst_id", "target_pnl"])
         y_train = res.select("target_pnl")

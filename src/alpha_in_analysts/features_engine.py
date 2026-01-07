@@ -2,8 +2,10 @@ import polars as pl
 import pandas_market_calendars as mcal
 from src.alpha_in_analysts.book_engine import BookEngine
 from src.alpha_in_analysts.backtester.portfolio import CreatePortfolio
-from src.alpha_in_analysts.backtester.backtester import Backtest
+from src.alpha_in_analysts.backtester.backtest_polars import Backtest
 from src.alpha_in_analysts.utils.s3_utils import s3Utils
+from src.alpha_in_analysts.utils.config import Config
+from src.alpha_in_analysts.utils.helpers import _parse_date
 
 class FeaturesEngine(BookEngine):
     """
@@ -26,12 +28,13 @@ class FeaturesEngine(BookEngine):
     """
 
     def __init__(self,
+                 config:Config,
                  df_prices: pl.DataFrame,
                  df_tp: pl.DataFrame,
-                 validity_length: int = 12,
-                 decay_half_life: int = 6,
-                 start_date: str = "1999-01-01",
-                 end_date: str = "2024-12-31"
+                 # validity_length: int = 12,
+                 # decay_half_life: int = 6,
+                 # start_date: str = "1999-01-01",
+                 # end_date: str = "2024-12-31"
                  ):
         """
         Parameters
@@ -49,20 +52,29 @@ class FeaturesEngine(BookEngine):
         end_date : str
             End date for the features engine.
         """
+        self.config = config
         super().__init__(
             df_tp=df_tp,
             df_prices=df_prices,
-            validity_length=validity_length,
-            decay_half_life=decay_half_life
+            validity_length=self.config.validity_length,
+            decay_half_life=self.config.decay_halflife
         )
-        self.start_date = pl.Series([start_date]).str.strptime(pl.Date).item()
-        self.end_date = pl.Series([end_date]).str.strptime(pl.Date).item()
+
+        self.start_date = str(_parse_date(self.config.train_start_date))
+        self.end_date = str(_parse_date(self.config.test_end_date))
         self.df_books = None
         self.df_books_wide = None
         self.pnl_all_analysts = None
         self.coverage = None
         self.y = None
-        self.dates = None
+        self.dates = (
+                self.df_prices
+                .select(pl.col("date").cast(pl.Date))
+                .unique()
+                .sort("date")
+                .to_series()
+                .to_list()
+            )
 
     def _build_books(self,
                      return_bool: bool = False
@@ -367,9 +379,9 @@ class FeaturesEngine(BookEngine):
         )
 
         # random sample of analysts for testing
-        import pandas as pd
-        a = pd.Series(analyst_ids).sample(15, random_state=42).tolist()
-        for i, analyst_id in enumerate(a):
+        # import pandas as pd
+        # a = pd.Series(analyst_ids).sample(15, random_state=42).tolist()
+        for i, analyst_id in enumerate(analyst_ids):
             print(f"Building PnL for analyst {analyst_id} ({i+1}/{len(analyst_ids)})")
             res = self._build_pnl_per_analyst(
                 analyst_id=analyst_id,
@@ -443,11 +455,18 @@ class FeaturesEngine(BookEngine):
             return perf_n_m
 
         # Cross-sectional percentile rank
-        perf_pct_nm = perf_n_m.with_columns(
-            (
-                    (pl.col(f"perf_{n}m").rank(method="average") - 1)
-                    / (pl.col(f"perf_{n}m").count() - 1)
-            ).alias(f"perf_{n}m_pct")
+        perf_pct_nm = (
+            perf_n_m
+            .with_columns(
+                (
+                        (pl.col(f"perf_{n}m").rank(method="average") - 1)
+                        / (pl.col(f"perf_{n}m").count() - 1)
+                ).alias(f"perf_{n}m_pct")
+            )
+            .select([
+                "analyst_id",
+                f"perf_{n}m_pct"
+            ])
         )
 
         return perf_pct_nm
@@ -494,11 +513,16 @@ class FeaturesEngine(BookEngine):
         if not pct:
             return vol_nm
 
-        vol_pct_nm = vol_nm.with_columns(
+        vol_pct_nm = (vol_nm.with_columns(
             (
                     (pl.col(f"vol_{n}m").rank(method="average") - 1)
                     / (pl.col(f"vol_{n}m").count() - 1)
             ).alias(f"vol_{n}m_pct")
+        )
+        .select([
+            "analyst_id",
+            f"vol_{n}m_pct"
+        ])
         )
         return vol_pct_nm
 
@@ -544,11 +568,16 @@ class FeaturesEngine(BookEngine):
         if not pct:
             return mean_ret_nm
 
-        mean_ret_pct_nm = mean_ret_nm.with_columns(
+        mean_ret_pct_nm = (mean_ret_nm.with_columns(
             (
                     (pl.col(f"mean_ret_{n}m").rank(method="average") - 1)
                     / (pl.col(f"mean_ret_{n}m").count() - 1)
             ).alias(f"mean_ret_{n}m_pct")
+        )
+        .select([
+            "analyst_id",
+            f"mean_ret_{n}m_pct"
+        ])
         )
 
         return mean_ret_pct_nm
@@ -601,11 +630,16 @@ class FeaturesEngine(BookEngine):
         if not pct:
             return sharpe_nm
 
-        sharpe_pct_nm = sharpe_nm.with_columns(
+        sharpe_pct_nm = (sharpe_nm.with_columns(
             (
                     (pl.col(f"sharpe_{n}m").rank(method="average") - 1)
                     / (pl.col(f"sharpe_{n}m").count() - 1)
             ).alias(f"sharpe_{n}m_pct")
+        )
+        .select([
+            "analyst_id",
+            f"sharpe_{n}m_pct"
+        ])
         )
 
         return sharpe_pct_nm
@@ -663,11 +697,16 @@ class FeaturesEngine(BookEngine):
         if not pct:
             return sortino_nm
 
-        sortino_pct_nm = sortino_nm.with_columns(
+        sortino_pct_nm = (sortino_nm.with_columns(
             (
                     (pl.col(f"sortino_{n}m").rank(method="average") - 1)
                     / (pl.col(f"sortino_{n}m").count() - 1)
             ).alias(f"sortino_{n}m_pct")
+        )
+        .select([
+            "analyst_id",
+            f"sortino_{n}m_pct"
+        ])
         )
 
         return sortino_pct_nm
@@ -714,26 +753,22 @@ class FeaturesEngine(BookEngine):
         if not pct:
             return mean_coverage_nm
 
-        mean_coverage_pct_nm = mean_coverage_nm.with_columns(
+        mean_coverage_pct_nm = (mean_coverage_nm.with_columns(
             (
                     (pl.col(f"coverage_{n}m").rank(method="average") - 1)
                     / (pl.col(f"coverage_{n}m").count() - 1)
             ).alias(f"coverage_{n}m_pct")
         )
+        .select([
+            "analyst_id",
+            f"coverage_{n}m_pct"
+        ])
+        )
 
         return mean_coverage_pct_nm
 
     def _build_all_features(self,
-                           up_to_date:str,
-                           lookback_perf_pct:int=12,
-                           lookback_perf:int=6,
-                           lookback_vol_pct:int=6,
-                           lookback_vol: int = 6,
-                           lookback_mean_ret:int=6,
-                            lookback_recent_sharpe:int=6,
-                            lookback_sharpe:int=12,
-                            lookback_sortino:int=12,
-                            lookback_recent_sortino:int=6
+                           up_to_date:str
                            ):
         """
         Main method to build all features at once.
@@ -741,16 +776,26 @@ class FeaturesEngine(BookEngine):
         ----------
         up_to_date : str
             Date at which to compute the features (formation date).
-        lookback_perf_pct : int
-            Lookback period (in months) for performance percentile feature.
         lookback_perf : int
-            Lookback period (in months) for recent performance feature.
-        lookback_vol_pct : int
-            Lookback period (in months) for volatility percentile feature.
+            Lookback period (in months) for cumulative performance feature.
+        lookback_recent_perf : int
+            Lookback period (in months) for recent cumulative performance feature.
         lookback_vol : int
-            Lookback period (in months) for recent volatility feature.
+            Lookback period (in months) for volatility feature.
         lookback_mean_ret : int
             Lookback period (in months) for mean return feature.
+        lookback_recent_sharpe : int
+            Lookback period (in months) for recent Sharpe ratio feature.
+        lookback_sharpe : int
+            Lookback period (in months) for Sharpe ratio feature.
+        lookback_sortino : int
+            Lookback period (in months) for Sortino ratio feature.
+        lookback_recent_sortino : int
+            Lookback period (in months) for recent Sortino ratio feature.
+        Returns
+        -------
+        pl.DataFrame
+            Dataframe containing all features.
         """
         if self.pnl_all_analysts is None:
             try:
@@ -762,72 +807,119 @@ class FeaturesEngine(BookEngine):
                 print("Could not load pnl_all_analysts from S3, building it locally.")
                 self._build_pnl_all_analysts(ret_bool=False)
 
-        # if self.coverage is None:
-        #     try:
-        #         self.coverage = s3Utils.pull_parquet_file_from_s3(
-        #             path="s3://alpha-in-analysts-storage/data/coverage.parquet",
-        #             to_polars=True
-        #         )
-        #     except Exception as e:
-        #         print("Could not load coverage from S3, building it locally.")
-        #         self._build_pnl_all_analysts(ret_bool=False)
+        if self.coverage is None:
+            try:
+                self.coverage = s3Utils.pull_parquet_file_from_s3(
+                    path="s3://alpha-in-analysts-storage/data/coverage.parquet",
+                    to_polars=True
+                )
+            except Exception as e:
+                print("Could not load coverage from S3, building it locally.")
+                self._build_pnl_all_analysts(ret_bool=False)
 
         perf_pct = self._build_cum_perf(up_to_date=up_to_date,
-                                        n=lookback_perf_pct,
+                                        n=self.config.lookback_perf,
                                         pct=True)
         perf = self._build_cum_perf(up_to_date=up_to_date,
-                                        n=lookback_perf_pct,
+                                        n=self.config.lookback_perf,
                                         pct=False)
         recent_perf_pct = self._build_cum_perf(up_to_date=up_to_date,
-                                               n=lookback_perf,
+                                               n=self.config.lookback_recent_perf,
                                                pct=True)
         recent_perf = self._build_cum_perf(up_to_date=up_to_date,
-                                               n=lookback_perf,
+                                               n=self.config.lookback_recent_perf,
                                                pct=False)
-        recent_vol_pct = self._build_volatility(up_to_date=up_to_date,
-                                                n=lookback_vol_pct,
+        vol_pct = self._build_volatility(up_to_date=up_to_date,
+                                                n=self.config.lookback_vol,
                                                 pct=True)
+        vol = self._build_volatility(up_to_date=up_to_date,
+                                            n=self.config.lookback_vol,
+                                            pct=False)
+        recent_vol_pct = self._build_volatility(up_to_date=up_to_date,
+                                         n=self.config.lookback_recent_vol,
+                                         pct=True)
         recent_vol = self._build_volatility(up_to_date=up_to_date,
-                                            n=lookback_vol,
+                                            n=self.config.lookback_recent_vol,
                                             pct=False)
         mean_ret = self._build_mean_ret(up_to_date=up_to_date,
-                                        n=lookback_mean_ret,
+                                        n=self.config.lookback_mean_ret,
+                                        pct=False)
+        recent_mean_ret_pct = self._build_mean_ret(up_to_date=up_to_date,
+                                        n=self.config.lookback_recent_mean_ret,
+                                        pct=True)
+        recent_mean_ret = self._build_mean_ret(up_to_date=up_to_date,
+                                        n=self.config.lookback_recent_mean_ret,
                                         pct=False)
         mean_ret_pct = self._build_mean_ret(up_to_date=up_to_date,
-                                        n=lookback_mean_ret,
-                                        pct=True)
+                                            n=self.config.lookback_mean_ret,
+                                            pct=True)
         recent_sharpe = self._build_sharpe(up_to_date=up_to_date,
-                                    n=lookback_recent_sharpe,
+                                    n=self.config.lookback_recent_sharpe,
                                     pct=False)
         recent_sharpe_pct = self._build_sharpe(up_to_date=up_to_date,
-                                           n=lookback_recent_sharpe,
+                                           n=self.config.lookback_recent_sharpe,
                                            pct=True)
         sharpe = self._build_sharpe(up_to_date=up_to_date,
-                                           n=lookback_sharpe,
+                                           n=self.config.lookback_sharpe,
                                            pct=False)
         sharpe_pct = self._build_sharpe(up_to_date=up_to_date,
-                                    n=lookback_sharpe,
+                                    n=self.config.lookback_sharpe,
                                     pct=True)
         recent_sortino = self._build_sortino(up_to_date=up_to_date,
-                                    n=lookback_recent_sortino,
+                                    n=self.config.lookback_recent_sortino,
                                     pct=False)
         recent_sortino_pct = self._build_sortino(up_to_date=up_to_date,
-                                           n=lookback_recent_sortino,
+                                           n=self.config.lookback_recent_sortino,
                                            pct=True)
         sortino = self._build_sortino(up_to_date=up_to_date,
-                                             n=lookback_sortino,
+                                             n=self.config.lookback_sortino,
                                              pct=False)
         sortino_pct = self._build_sortino(up_to_date=up_to_date,
-                                    n=lookback_sortino,
+                                    n=self.config.lookback_sortino,
                                     pct=True)
+        coverage = self._build_mean_coverage(up_to_date=up_to_date,
+                                             n=self.config.lookback_coverage,
+                                             pct=False)
+        coverage_pct = self._build_mean_coverage(up_to_date=up_to_date,
+                                                 n=self.config.lookback_coverage,
+                                                 pct=True)
+        recent_coverage = self._build_mean_coverage(up_to_date=up_to_date,
+                                                n=self.config.lookback_recent_coverage,
+                                                pct=False)
+        recent_coverage_pct = self._build_mean_coverage(up_to_date=up_to_date,
+                                                n=self.config.lookback_recent_coverage,
+                                                pct=True)
 
         # Add a column with the up_to_date date in each df, named 'date'
-        features = [perf_pct, recent_perf_pct, recent_vol_pct, recent_vol, mean_ret,
-                    mean_ret_pct, perf, recent_perf, recent_sharpe, recent_sharpe_pct,
-                    sharpe, sharpe_pct, recent_sortino, recent_sortino_pct, sortino, sortino_pct]
-        dates = self.df_prices.select(pl.col("date")).unique().sort("date").to_series().to_list()
-        date_x_index = dates.index(pl.Series([up_to_date]).str.strptime(pl.Date).item())
-        date_y = str(dates[date_x_index+12])
+        features = [
+            perf_pct,
+            perf,
+            recent_perf_pct,
+            recent_perf,
+            vol_pct,
+            vol,
+            recent_vol_pct,
+            recent_vol,
+            mean_ret,
+            recent_mean_ret_pct,
+            recent_mean_ret,
+            mean_ret_pct,
+            recent_sharpe,
+            recent_sharpe_pct,
+            sharpe,
+            sharpe_pct,
+            recent_sortino,
+            recent_sortino_pct,
+            sortino,
+            sortino_pct,
+            coverage,
+            coverage_pct,
+            recent_coverage,
+            recent_coverage_pct,
+        ]
+
+        date_x_index = self.dates.index(pl.Series([up_to_date]).str.strptime(pl.Date).item())
+        date_y = str(self.dates[date_x_index+12])
         features = [
             df
             .with_columns(
@@ -851,10 +943,10 @@ class FeaturesEngine(BookEngine):
         df_features = df_features.drop_nulls()
         return df_features
 
-    def _build_y(self, up_to_date:str=None, lookback:int=12):
+    def _build_y(self, up_to_date:str=None):
 
         y = self._build_cum_perf(up_to_date=up_to_date,
-                                    n=lookback,
+                                    n=self.config.lookback_y,
                                     pct=False)
         y = (
             y
@@ -869,17 +961,7 @@ class FeaturesEngine(BookEngine):
         self.y = y
 
     def get_features_and_y(self,
-                           up_to_date:str,
-                           lookback_perf_pct:int=12,
-                           lookback_perf:int=6,
-                           lookback_vol_pct:int=6,
-                           lookback_vol: int = 6,
-                           lookback_mean_ret:int=6,
-                            lookback_sharpe:int=12,
-                            lookback_sortino:int=12,
-                            lookback_recent_sharpe:int=6,
-                            lookback_recent_sortino:int=6,
-                           lookback_y:int=12
+                           up_to_date:str
                            ):
         """
         Get features and target variable y at once.
@@ -887,16 +969,18 @@ class FeaturesEngine(BookEngine):
         ----------
         up_to_date : str
             Date at which to compute the features (formation date).
-        lookback_perf_pct : int
+        lookback_perf: int
             Lookback period (in months) for performance percentile feature.
-        lookback_perf : int
+        lookback_recent_perf : int
             Lookback period (in months) for recent performance feature.
-        lookback_vol_pct : int
-            Lookback period (in months) for volatility percentile feature.
         lookback_vol : int
+            Lookback period (in months) for volatility feature.
+        lookback_recent_vol : int
             Lookback period (in months) for recent volatility feature.
         lookback_mean_ret : int
             Lookback period (in months) for mean return feature.
+        lookback_recent_mean_ret : int
+            Lookback period (in months) for recent mean return feature.
         lookback_sharpe : int
             Lookback period (in months) for Sharpe ratio feature.
         lookback_recent_sharpe : int
@@ -912,16 +996,6 @@ class FeaturesEngine(BookEngine):
         pl.DataFrame
             DataFrame with features and target variable y.
         """
-        if self.dates is None:
-            self.dates = (
-                self.df_prices
-                .select(pl.col("date").cast(pl.Date))
-                .unique()
-                .sort("date")
-                .to_series()
-                .to_list()
-            )
-
         up_to_date_y_pl = pl.Series([up_to_date]).str.strptime(pl.Date).item()
         date_x_idx = self.dates.index(up_to_date_y_pl)
         if date_x_idx <= 12:
@@ -930,19 +1004,11 @@ class FeaturesEngine(BookEngine):
         up_to_date_x = str(self.dates[date_x_idx-12])
 
         df_features = self._build_all_features(
-            up_to_date=up_to_date_x,
-            lookback_perf_pct=lookback_perf_pct,
-            lookback_perf=lookback_perf,
-            lookback_vol_pct=lookback_vol_pct,
-            lookback_vol=lookback_vol,
-            lookback_mean_ret=lookback_mean_ret,
-            lookback_sharpe=lookback_sharpe,
-            lookback_recent_sharpe=lookback_recent_sharpe,
-            lookback_sortino=lookback_sortino,
-            lookback_recent_sortino=lookback_recent_sortino
+            up_to_date=up_to_date_x
         )
+
         if self.y is None:
-            self._build_y(up_to_date=str(up_to_date_y_pl), lookback=lookback_y)
+            self._build_y(up_to_date=str(up_to_date_y_pl))
 
         y_tmp = (
             self.y

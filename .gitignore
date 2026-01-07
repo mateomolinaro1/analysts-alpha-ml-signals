@@ -10,8 +10,9 @@ wheels/
 # Virtual environments
 .venv
 
-# S3 credentials
+# secrets
 .env
+*.pem
 
 .idea/
 .git
@@ -19,3 +20,17 @@ wheels/
 data/*
 !data/.gitkeep
 sandbox.txt
+miscellanous
+
+outputs/figures/*
+!outputs/figures/.gitkeep
+
+outputs/logs/*
+!outputs/logs/.gitkeep
+
+outputs/reports/*
+!outputs/reports/.gitkeep
+
+requirements.txt
+
+

@@ -81,6 +81,74 @@ class s3Utils:
         logger.info(f"Uploaded parquet to s3://{bucket}/{key}")
 
     @staticmethod
+    def push_object_to_s3(
+            object_to_push,
+            path: str,
+            file_type: str,
+            profile: Optional[str] = DEFAULT_PROFILE,
+            region: Optional[str] = DEFAULT_REGION,
+            index: bool = True,
+            compression: Optional[str] = "snappy",
+            pickle_protocol: int = pickle.HIGHEST_PROTOCOL,
+    ) -> None:
+        """
+        Upload an object to S3 as parquet or pickle using boto3 + in-memory buffer.
+
+        Parameters
+        ----------
+        object_to_push : object
+            Object to upload (DataFrame for parquet, any pickleable object for pickle)
+        path : str
+            S3 path (s3://bucket/key.parquet or s3://bucket/key.pkl)
+        file_type : str
+            One of {"parquet", "pickle"}
+        """
+        if not isinstance(path, str):
+            raise ValueError("path must be a str")
+
+        if not path.startswith("s3://"):
+            raise ValueError("path must be an S3 URI like s3://bucket/key")
+
+        file_type = file_type.lower()
+        if file_type not in {"parquet", "pickle"}:
+            raise ValueError("file_type must be one of {'parquet', 'pickle'}")
+
+        if file_type == "parquet" and not isinstance(object_to_push, pd.DataFrame):
+            raise ValueError("For parquet, object_to_push must be a pd.DataFrame")
+
+        bucket, key = s3Utils._parse_s3_uri(path)
+        s3 = s3Utils.get_s3_client(profile=profile, region=region)
+
+        buffer = io.BytesIO()
+
+        # ---- Write to buffer ----
+        if file_type == "parquet":
+            object_to_push.to_parquet(
+                buffer,
+                engine="pyarrow",
+                index=index,
+                compression=compression,
+            )
+
+        elif file_type == "pickle":
+            pickle.dump(
+                object_to_push,
+                buffer,
+                protocol=pickle_protocol,
+            )
+
+        buffer.seek(0)
+
+        # ---- Upload ----
+        s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=buffer.getvalue(),
+        )
+
+        logger.info(f"Uploaded {file_type} to s3://{bucket}/{key}")
+
+    @staticmethod
     def push_objects_to_s3_parquet(
         objects_dct: dict,
         profile: Optional[str] = DEFAULT_PROFILE,
@@ -105,6 +173,65 @@ class s3Utils:
                 index=index,
                 compression=compression,
             )
+
+    @staticmethod
+    def pull_file_from_s3(
+            path: str,
+            profile: Optional[str] = DEFAULT_PROFILE,
+            region: Optional[str] = DEFAULT_REGION,
+            to_polars: bool = False,
+            file_type: Optional[str] = None,  # "parquet" | "pickle"
+    ):
+        """
+        Download a parquet or pickle file from S3.
+
+        Parameters
+        ----------
+        path : str
+            S3 URI (s3://bucket/key)
+        profile : str, optional
+            AWS profile
+        region : str, optional
+            AWS region
+        to_polars : bool, default False
+            If True and parquet → return polars.DataFrame
+        file_type : {"parquet", "pickle"}, optional
+            Force file type. If None, inferred from extension.
+
+        Returns
+        -------
+        object
+            pd.DataFrame, pl.DataFrame, or arbitrary Python object (pickle)
+        """
+        if not isinstance(path, str):
+            raise ValueError("path must be a str")
+        if not path.startswith("s3://"):
+            raise ValueError("path must be an S3 URI like s3://bucket/key")
+
+        # Infer file type if not provided
+        if file_type is None:
+            if path.endswith(".parquet"):
+                file_type = "parquet"
+            elif path.endswith((".pkl", ".pickle")):
+                file_type = "pickle"
+            else:
+                raise ValueError("Cannot infer file type from path; specify file_type")
+
+        bucket, key = s3Utils._parse_s3_uri(path)
+        s3 = s3Utils.get_s3_client(profile=profile, region=region)
+
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        buf = io.BytesIO(obj["Body"].read())
+
+        if file_type == "parquet":
+            if to_polars:
+                return pl.read_parquet(buf)
+            return pd.read_parquet(buf, engine="pyarrow")
+
+        if file_type == "pickle":
+            return pickle.loads(buf.getvalue())
+
+        raise ValueError(f"Unsupported file_type: {file_type}")
 
     # ---------- parquet: PULL ----------
     @staticmethod
