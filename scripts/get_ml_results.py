@@ -32,9 +32,9 @@ def main(
     # -------------------------
     if models is None:
         models = {
-            "ridge": Ridge,
-            "lasso": Lasso,
-            "random_forest": RandomForestRegressor(n_jobs=1)
+            "ridge": lambda **kw: Ridge(**kw),
+            "lasso": lambda **kw: Lasso(**kw),
+            "random_forest": lambda **kw: RandomForestRegressor(n_jobs=1, **kw),
         }
 
     # -------------------------
