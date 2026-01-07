@@ -4,6 +4,7 @@ import time
 import numpy as np
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.neural_network import MLPRegressor
 from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error
 from joblib import Parallel, delayed
@@ -32,26 +33,19 @@ def main(
     # -------------------------
     if models is None:
         models = {
-            "ridge": lambda **kw: Ridge(**kw),
-            "lasso": lambda **kw: Lasso(**kw),
-            "random_forest": lambda **kw: RandomForestRegressor(n_jobs=1, **kw),
+            # "ridge": lambda **kw: Ridge(**kw),
+            # "lasso": lambda **kw: Lasso(**kw),
+            # "random_forest": lambda **kw: RandomForestRegressor(n_jobs=1, **kw),
+            "mlp": lambda **kw: MLPRegressor(**kw),
         }
 
     # -------------------------
     # Default hyperparameters
     # -------------------------
     if hyperparams_all_combinations is None:
-        hyperparams_all_combinations = {
-            "ridge": [{"alpha": 0.1}, {"alpha": 1.0}, {"alpha": 10.0}],
-            "lasso": [{"alpha": 0.01}, {"alpha": 0.1}, {"alpha": 1.0}],
-            "random_forest": [
-                {"n_estimators": n, "max_depth": d, "random_state": 0}
-                for n in [50, 100]
-                for d in [5, 10]
-            ]
-        }
-        # hyperparams_all_combinations = {}
-        #
+
+        hyperparams_all_combinations = {}
+
         # # =========================
         # # Ridge
         # # =========================
@@ -111,21 +105,21 @@ def main(
         #                         "subsample": subsample,
         #                     }
         #                 )
-        #
-        # # =========================
-        # # Neural Network (MLP)
-        # # =========================
-        # hyperparams_all_combinations["mlp"] = []
-        # for hidden_layer_sizes in [(50,), (100,), (50, 50), (100, 50)]:
-        #     for activation in ["relu", "tanh"]:
-        #         for alpha in [0.0001, 0.001]:
-        #             hyperparams_all_combinations["mlp"].append(
-        #                 {
-        #                     "hidden_layer_sizes": hidden_layer_sizes,
-        #                     "activation": activation,
-        #                     "alpha": alpha,
-        #                 }
-        #             )
+
+        # =========================
+        # Neural Network (MLP)
+        # =========================
+        hyperparams_all_combinations["mlp"] = []
+        for hidden_layer_sizes in [(50,), (50, 50), (32,16,8)]:
+            for activation in ["relu", "tanh"]:
+                for alpha in [0.0001, 0.001]:
+                    hyperparams_all_combinations["mlp"].append(
+                        {
+                            "hidden_layer_sizes": hidden_layer_sizes,
+                            "activation": activation,
+                            "alpha": alpha,
+                        }
+                    )
 
     # -------------------------
     # Default S3 output paths
