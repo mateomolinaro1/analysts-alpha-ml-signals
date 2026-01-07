@@ -40,9 +40,90 @@ def main(
     # -------------------------
     if hyperparams_all_combinations is None:
         hyperparams_all_combinations = {
-            "ridge": [{"alpha": 0.1}, {"alpha": 10.0}],
-            "lasso": [{"alpha": 0.01}, {"alpha": 1.0}],
+            "ridge": [{"alpha": 0.1}, {"alpha": 1.0}, {"alpha": 10.0}],
+            "lasso": [{"alpha": 0.01}, {"alpha": 0.1}, {"alpha": 1.0}],
+            "random_forest": [
+                {"n_estimators": n, "max_depth": d, "random_state": 0}
+                for n in [50, 100]
+                for d in [5, 10]
+            ]
         }
+        # hyperparams_all_combinations = {}
+        #
+        # # =========================
+        # # Ridge
+        # # =========================
+        # hyperparams_all_combinations["ridge"] = []
+        # for alpha in [0.01, 0.1, 1.0, 10.0]:
+        #     hyperparams_all_combinations["ridge"].append(
+        #         {"alpha": alpha}
+        #     )
+        #
+        # # =========================
+        # # Lasso
+        # # =========================
+        # hyperparams_all_combinations["lasso"] = []
+        # for alpha in [0.001, 0.01, 0.1, 1.0]:
+        #     hyperparams_all_combinations["lasso"].append(
+        #         {"alpha": alpha}
+        #     )
+        #
+        # # =========================
+        # # Elastic Net
+        # # =========================
+        # hyperparams_all_combinations["elastic_net"] = []
+        # for alpha in [0.001, 0.01]:
+        #     for l1_ratio in [0.2, 0.5, 0.8]:
+        #         hyperparams_all_combinations["elastic_net"].append(
+        #             {"alpha": alpha, "l1_ratio": l1_ratio}
+        #         )
+        #
+        # # =========================
+        # # Random Forest
+        # # =========================
+        # hyperparams_all_combinations["random_forest"] = []
+        # for n_estimators in [100, 200, 300]:
+        #     for max_depth in [None, 10, 20]:
+        #         for min_samples_split in [2, 5]:
+        #             hyperparams_all_combinations["random_forest"].append(
+        #                 {
+        #                     "n_estimators": n_estimators,
+        #                     "max_depth": max_depth,
+        #                     "min_samples_split": min_samples_split,
+        #                 }
+        #             )
+        #
+        # # =========================
+        # # XGBoost
+        # # =========================
+        # hyperparams_all_combinations["xgboost"] = []
+        # for n_estimators in [100, 200, 300]:
+        #     for learning_rate in [0.05, 0.1]:
+        #         for max_depth in [3, 5]:
+        #             for subsample in [0.8, 1.0]:
+        #                 hyperparams_all_combinations["xgboost"].append(
+        #                     {
+        #                         "n_estimators": n_estimators,
+        #                         "learning_rate": learning_rate,
+        #                         "max_depth": max_depth,
+        #                         "subsample": subsample,
+        #                     }
+        #                 )
+        #
+        # # =========================
+        # # Neural Network (MLP)
+        # # =========================
+        # hyperparams_all_combinations["mlp"] = []
+        # for hidden_layer_sizes in [(50,), (100,), (50, 50), (100, 50)]:
+        #     for activation in ["relu", "tanh"]:
+        #         for alpha in [0.0001, 0.001]:
+        #             hyperparams_all_combinations["mlp"].append(
+        #                 {
+        #                     "hidden_layer_sizes": hidden_layer_sizes,
+        #                     "activation": activation,
+        #                     "alpha": alpha,
+        #                 }
+        #             )
 
     # -------------------------
     # Default S3 output paths
