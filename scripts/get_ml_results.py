@@ -2,9 +2,11 @@ import pandas as pd
 import polars as pl
 import time
 import numpy as np
-from sklearn.linear_model import Ridge, Lasso
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge, Lasso, ElasticNet, HuberRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor
 from sklearn.neural_network import MLPRegressor
+from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
 from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error
 from joblib import Parallel, delayed
@@ -33,10 +35,30 @@ def main(
     # -------------------------
     if models is None:
         models = {
-            # "ridge": lambda **kw: Ridge(**kw),
-            # "lasso": lambda **kw: Lasso(**kw),
+            # Linear
+            "ridge": lambda **kw: Ridge(**kw),
+            "lasso": lambda **kw: Lasso(**kw),
+            "elastic_net": lambda **kw: ElasticNet(**kw),
+            # "huber": lambda **kw: HuberRegressor(**kw),
+
+            # Tree / Boosting
             # "random_forest": lambda **kw: RandomForestRegressor(n_jobs=1, **kw),
-            "mlp": lambda **kw: MLPRegressor(**kw),
+            # "xgboost": lambda **kw: XGBRegressor(
+            #     n_jobs=1,
+            #     objective="reg:squarederror",
+            #     verbosity=0,
+            #     **kw
+            # ),
+            # "lightgbm": lambda **kw: LGBMRegressor(
+            #     n_jobs=1,
+            #     objective="regression",
+            #     verbosity=-1,
+            #     **kw
+            # ),
+            # "hist_gb": lambda **kw: HistGradientBoostingRegressor(**kw),
+
+            # NN
+            # "mlp": lambda **kw: MLPRegressor(**kw),
         }
 
     # -------------------------
@@ -46,34 +68,49 @@ def main(
 
         hyperparams_all_combinations = {}
 
+        # =========================
+        # Ridge
+        # =========================
+        hyperparams_all_combinations["ridge"] = []
+        for alpha in [0.01, 0.1, 1.0, 10.0]:
+            hyperparams_all_combinations["ridge"].append(
+                {"alpha": alpha}
+            )
+
+        # =========================
+        # Lasso
+        # =========================
+        hyperparams_all_combinations["lasso"] = []
+        for alpha in [0.001, 0.01, 0.1, 1.0]:
+            hyperparams_all_combinations["lasso"].append(
+                {"alpha": alpha}
+            )
+
+        # =========================
+        # Elastic Net
+        # =========================
+        hyperparams_all_combinations["elastic_net"] = []
+        for alpha in [0.01, 0.1, 1.0, 10.0]:
+            for l1_ratio in [0.1, 0.5, 0.9]:
+                hyperparams_all_combinations["elastic_net"].append(
+                    {"alpha": alpha, "l1_ratio": l1_ratio}
+                )
+
+
         # # =========================
-        # # Ridge
+        # # Huber Regressor
         # # =========================
-        # hyperparams_all_combinations["ridge"] = []
-        # for alpha in [0.01, 0.1, 1.0, 10.0]:
-        #     hyperparams_all_combinations["ridge"].append(
-        #         {"alpha": alpha}
-        #     )
-        #
-        # # =========================
-        # # Lasso
-        # # =========================
-        # hyperparams_all_combinations["lasso"] = []
-        # for alpha in [0.001, 0.01, 0.1, 1.0]:
-        #     hyperparams_all_combinations["lasso"].append(
-        #         {"alpha": alpha}
-        #     )
-        #
-        # # =========================
-        # # Elastic Net
-        # # =========================
-        # hyperparams_all_combinations["elastic_net"] = []
-        # for alpha in [0.001, 0.01]:
-        #     for l1_ratio in [0.2, 0.5, 0.8]:
-        #         hyperparams_all_combinations["elastic_net"].append(
-        #             {"alpha": alpha, "l1_ratio": l1_ratio}
+        # hyperparams_all_combinations["huber"] = []
+        # for epsilon in [1.1, 1.35, 1.5]:
+        #     for alpha in [0.0001, 0.001, 0.01]:
+        #         hyperparams_all_combinations["huber"].append(
+        #             {
+        #                 "epsilon": epsilon,
+        #                 "alpha": alpha,
+        #                 "max_iter": 10_000,
+        #             }
         #         )
-        #
+
         # # =========================
         # # Random Forest
         # # =========================
@@ -88,7 +125,7 @@ def main(
         #                     "min_samples_split": min_samples_split,
         #                 }
         #             )
-        #
+
         # # =========================
         # # XGBoost
         # # =========================
@@ -106,30 +143,68 @@ def main(
         #                     }
         #                 )
 
-        # =========================
-        # Neural Network (MLP)
-        # =========================
-        hyperparams_all_combinations["mlp"] = []
-        for hidden_layer_sizes in [(50,), (50, 50), (32,16,8)]:
-            for activation in ["relu", "tanh"]:
-                for alpha in [0.0001, 0.001]:
-                    hyperparams_all_combinations["mlp"].append(
-                        {
-                            "hidden_layer_sizes": hidden_layer_sizes,
-                            "activation": activation,
-                            "alpha": alpha,
-                        }
-                    )
+        # # =========================
+        # # LightGBM
+        # # =========================
+        # hyperparams_all_combinations["lightgbm"] = []
+        # for num_leaves in [15, 31]:
+        #     for learning_rate in [0.01, 0.05, 0.1]:
+        #         for max_depth in [-1, 5, 10]:
+        #             hyperparams_all_combinations["lightgbm"].append(
+        #                 {
+        #                     "num_leaves": num_leaves,
+        #                     "learning_rate": learning_rate,
+        #                     "max_depth": max_depth,
+        #                     "n_estimators": 300,
+        #                     "min_child_samples": 20,
+        #                     "subsample": 0.8,
+        #                     "colsample_bytree": 0.8,
+        #                     "random_state": 42,
+        #                 }
+        #             )
+
+        # # =========================
+        # # HistGradientBoosting
+        # # =========================
+        # hyperparams_all_combinations["hist_gb"] = []
+        # for max_depth in [3, 5, 7]:
+        #     for learning_rate in [0.01, 0.05, 0.1]:
+        #         for max_leaf_nodes in [15, 31]:
+        #             hyperparams_all_combinations["hist_gb"].append(
+        #                 {
+        #                     "max_depth": max_depth,
+        #                     "learning_rate": learning_rate,
+        #                     "max_leaf_nodes": max_leaf_nodes,
+        #                     "max_iter": 300,
+        #                     "random_state": 42,
+        #                 }
+        #             )
+
+        # # =========================
+        # # Neural Network (MLP)
+        # # =========================
+        # hyperparams_all_combinations["mlp"] = []
+        # for hidden_layer_sizes in [(50,), (50, 50), (32,16,8)]:
+        #     for activation in ["relu", "tanh"]:
+        #         for alpha in [0.0001, 0.001]:
+        #             hyperparams_all_combinations["mlp"].append(
+        #                 {
+        #                     "hidden_layer_sizes": hidden_layer_sizes,
+        #                     "activation": activation,
+        #                     "alpha": alpha,
+        #                 }
+        #             )
 
     # -------------------------
     # Default S3 output paths
     # -------------------------
     if path_objs_to_save is None:
         path_objs_to_save = {
-            "best_score_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_score_all_models_overtime.parquet",
-            "best_hyperparams_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_hyperparams_all_models_overtime.pickle",
-            "OOS_PRED": "s3://alpha-in-analysts-storage/results/OOS_PRED.pickle",
-            "OOS_TRUE": "s3://alpha-in-analysts-storage/results/OOS_TRUE.pickle",
+            "best_score_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_score_all_models_overtime_tmp.parquet",
+            "best_params_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_params_all_models_overtime_tmp.pkl",
+            "best_hyperparams_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_hyperparams_all_models_overtime_tmp.pkl",
+            "OOS_PRED": "s3://alpha-in-analysts-storage/results/OOS_PRED_tmp.pkl",
+            "OOS_TRUE": "s3://alpha-in-analysts-storage/results/OOS_TRUE_tmp.pkl"
         }
 
     # ------------------------------------------------------------------
@@ -155,7 +230,7 @@ def main(
     start = time.time()
     df_tp = s3Utils.pull_parquet_file_from_s3(path=path_df_tp, to_polars=True)
     df_prices = s3Utils.pull_parquet_file_from_s3(path=path_df_prices, to_polars=True)
-    logger.info("Data loaded from S3 in", round(time.time() - start, 2), "seconds")
+    logger.info(f"Data loaded from S3 in {round(time.time() - start, 2)} seconds")
 
     feature_engine = FeaturesEngine(
         config=config,
@@ -206,6 +281,27 @@ def main(
 
     best_hyperparams_all_models_overtime = {
         m: pd.DataFrame(index=date_range, columns=list(hyperparams_all_combinations[m][0].keys()))
+        for m in models
+    }
+
+    # -----------------------------
+    # STORE BETAS OVER TIME (linear only)
+    # -----------------------------
+    linear_models = {"ridge", "lasso", "elastic_net"}
+
+    best_params_all_models_overtime = {
+        m: (
+            pd.DataFrame(
+                index=date_range,
+                columns=["intercept"]
+                        + list(
+                    data.drop(columns=["date", "analyst_id", "y"]).columns
+                ),
+                dtype=float,
+            )
+            if m in linear_models
+            else None
+        )
         for m in models
     }
 
@@ -325,6 +421,7 @@ def main(
             )
             y_hat = model_final.predict(X_test)
 
+            # Storage
             OOS_PRED[model_name][test_date] = pd.Series(
                 y_hat,
                 index=data[data["date"] == test_date]["analyst_id"]
@@ -332,6 +429,21 @@ def main(
             OOS_TRUE[test_date] = data[data["date"] == y_true_date].set_index(
                 "analyst_id"
             )["y"]
+
+            # -----------------------------
+            # STORE COEFFICIENTS (linear models only)
+            # -----------------------------
+            if model_name in linear_models:
+                best_params_all_models_overtime[model_name].loc[date_t, "intercept"] = (
+                    model_final.intercept_
+                    if hasattr(model_final, "intercept_")
+                    else np.nan
+                )
+
+                best_params_all_models_overtime[model_name].loc[
+                    date_t,
+                    X_train.columns
+                ] = model_final.coef_
 
             logger.info(
                 f"Loop finished for {model_name} in: "
@@ -346,6 +458,7 @@ def main(
     if save_to_s3:
         objs = {
             path_objs_to_save["best_score_all_models_overtime"]: best_score_all_models_overtime,
+            path_objs_to_save["best_params_all_models_overtime"]: best_params_all_models_overtime,
             path_objs_to_save["best_hyperparams_all_models_overtime"]: best_hyperparams_all_models_overtime,
             path_objs_to_save["OOS_PRED"]: OOS_PRED,
             path_objs_to_save["OOS_TRUE"]: OOS_TRUE,
@@ -360,8 +473,54 @@ def main(
     else:
         logger.info("Forecasts done. End of script")
 
+def load_ml_results_from_s3():
+    path_objs_to_load = {
+        "best_score_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_score_all_models_overtime_tmp.parquet",
+        "best_params_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_params_all_models_overtime_tmp.pkl",
+        "best_hyperparams_all_models_overtime": "s3://alpha-in-analysts-storage/results/best_hyperparams_all_models_overtime_tmp.pkl",
+        "OOS_PRED": "s3://alpha-in-analysts-storage/results/OOS_PRED_tmp.pkl",
+        "OOS_TRUE": "s3://alpha-in-analysts-storage/results/OOS_TRUE_tmp.pkl"
+    }
+    objs_loaded = {}
+    for k,v in path_objs_to_load.items():
+        ext = v.split("/")[-1].split(".")[-1]
+        objs_loaded[k] = s3Utils.pull_file_from_s3(
+            path=v,
+            file_type=ext
+        )
+    return objs_loaded
+
+def get_analytics():
+    plt.figure(figsize=(10, 6))
+    plt.plot(best_score_all_models_overtime)
+    plt.title("Best score overtime per model")
+    plt.ylabel("Score (rmse)")
+    plt.ylim(top=2)
+    plt.ylim(bottom=0)
+    plt.xlabel("Date")
+    plt.legend(best_score_all_models_overtime.columns)
+    plt.grid(visible=True)
+    plt.savefig(config.ROOT_DIR / "outputs" / "figures" / "best_score_all_models_overtime.png")
+    plt.close()
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+    mdl_names = list(best_hyperparams_all_models_overtime.keys())
+    for k, ax in enumerate(axes.flat):
+        if k == 3:
+            continue
+        mdl = mdl_names[k]
+        df = best_hyperparams_all_models_overtime[mdl]
+        ax.plot(df, label=df.columns)
+
+        ax.set_title(f"Optimal hyperparams over timer for model: {mdl}")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Hyperparameter(s)")
+        ax.grid(True)
+        ax.legend(fontsize=8)
+
 if __name__=="__main__":
     main()
+
 
 
 

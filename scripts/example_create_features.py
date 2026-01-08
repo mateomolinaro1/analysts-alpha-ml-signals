@@ -308,14 +308,62 @@ for t in range(start_idx, len(date_range) - forecast_horizon):
 
     print("Loop finished in: ", round((time.time() - start)/60, 4), "min")
 
+plt.figure(figsize=(10,6))
+plt.plot(best_score_all_models_overtime)
+plt.title("Best score overtime per model")
+plt.ylabel("Score (rmse)")
+plt.ylim(top=2)
+plt.ylim(bottom=0)
+plt.xlabel("Date")
+plt.legend(best_score_all_models_overtime.columns)
+plt.grid(visible=True)
+plt.savefig(config.ROOT_DIR/"outputs"/"figures"/"best_score_all_models_overtime.png")
+plt.close()
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+mdl_names = list(best_hyperparams_all_models_overtime.keys())
+for k, ax in enumerate(axes.flat):
+    if k==3:
+        continue
+    mdl = mdl_names[k]
+    df = best_hyperparams_all_models_overtime[mdl]
+    ax.plot(df, label=df.columns)
+
+    ax.set_title(f"Optimal hyperparams over timer for model: {mdl}")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Hyperparameter(s)")
+    ax.grid(True)
+    ax.legend(fontsize=8)
+
+plt.tight_layout()
+plt.savefig(config.ROOT_DIR/"outputs"/"figures"/"best_hyperparams_all_models_overtime.png", dpi=300)
+plt.close()
 
 
+# s3Utils.push_object_to_s3(
+#     object_to_push=ot,
+#     path="s3://alpha-in-analysts-storage/results/OOS_TRUE.pkl",
+#     file_type="pickle"
+# )
+# import pickle
+# with open("best_hyperparams_all_models_overtime.pkl", "wb") as f:
+#     pickle.dump(bh, f)
 
-
-
-
-
-
-
-
+# with open("OOS_PRED.pkl", "rb") as f:
+#     op = pickle.load(f)
+#
+ot = s3Utils.pull_file_from_s3(
+    path="s3://alpha-in-analysts-storage/results/OOS_TRUE_all.pkl",
+    file_type="pickle"
+)
+op["xgboost"]=opx["xgboost"]
+# op["mlp"] = opm["mlp"]
+# best_score_all_models_overtime.to_parquet("best_score_all_models_overtime.parquet")
+#
+# bsf = pd.concat([bs,bsm],axis=1)
+# s3Utils.push_object_to_s3(
+#     object_to_push=op,
+#     path="s3://alpha-in-analysts-storage/results/OOS_PRED_all.pkl",
+#     file_type="pickle"
+# )
 

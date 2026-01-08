@@ -110,8 +110,8 @@ class s3Utils:
             raise ValueError("path must be an S3 URI like s3://bucket/key")
 
         file_type = file_type.lower()
-        if file_type not in {"parquet", "pickle"}:
-            raise ValueError("file_type must be one of {'parquet', 'pickle'}")
+        if file_type not in {"parquet", "pickle", "pkl"}:
+            raise ValueError("file_type must be one of {'parquet', 'pickle', 'pkl'}")
 
         if file_type == "parquet" and not isinstance(object_to_push, pd.DataFrame):
             raise ValueError("For parquet, object_to_push must be a pd.DataFrame")
@@ -130,7 +130,7 @@ class s3Utils:
                 compression=compression,
             )
 
-        elif file_type == "pickle":
+        elif file_type == "pickle" or file_type == "pkl":
             pickle.dump(
                 object_to_push,
                 buffer,
