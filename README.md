@@ -2,6 +2,13 @@
 
 ---
 
+## Contact
+
+- mateo.molinaro@ensae.fr - https://www.linkedin.com/in/matéo-molinaro/
+- thibault.charbonnier@ensae.fr - https://www.linkedin.com/in/thibault-charbonnier/
+
+---
+
 ## Abstract
 
 >Inspired by Alpha in Analysts (2025), we study the investment value of sell-side analyst price targets
@@ -95,6 +102,24 @@ c^{-}_{i,m}=\frac{-\widehat{\mathrm{PnL}}^{m+12}_i}{\sum_{j\in \mathcal{I}_m^{-}
 
 The final meta-portfolio is an aggregation of analyst books weighted by $c^{+/-}$.
 
+In practice, one could also consider a transformation of the predicted PnL to define the meta-portfolio weights.
+In our study we used a double sigmoid transformation to emphasize strong convictions both in long and short positions and also to flatten the weights for low predicted performance.
+
+
+$$
+f(x)=
+\begin{cases}
+0, & |x|\le d,\\[6pt]
+\sigma\!\big(k_{+}(x-d)\big)-\frac{1}{2}, & x>d,\\[6pt]
+-\Big(\sigma\!\big(k_{-}(-x-d)\big)-\frac{1}{2}\Big), & x<-d,
+\end{cases}
+$$
+
+where :
+- d : dead zone, where all prediction are converted to 0 (e.g. 5%)
+- $k_+$ is a constant representing the steepness of the positive PnL mapping (e.g. 12.0)
+- $k_-$ is a constant representing the steepness of the negative PnL mapping (e.g. 12.0)
+
 ### 4) Machine Learning Training
 
 To preserve the chronological structure of the panel and avoid look-ahead bias, we train all models using a walk-forward cross-validation scheme.
@@ -102,13 +127,12 @@ At each rebalancing date $t$, we estimate the model on an expanding training win
 producing strictly out-of-sample predictions for each analyst.
 
 Hyperparameters are selected via a grid search performed within each walk-forward step: for each candidate configuration $\theta$, the model is fit on the training slice
-and scored on the corresponding validation slice using ranking-based metrics (primarily the Information Coefficient, i.e., Spearman correlation between predicted and realized forward analyst P\&L),
-complemented by point-forecast accuracy measures (e.g., RMSE).
+and scored on the corresponding validation slice using RMSE.
 The chosen hyperparameters $\theta^{\star}_t$ are then used to refit the model on the full training data up to $t$ and generate predictions for the next out-of-sample date. 
 
 This procedure yields a time series of out-of-sample forecasts that can be directly fed into the portfolio construction layer.
 
-An example of expanding walk-forward training schedule with cross-validation:
+An example of expanding walk-forward training schedule with cross-validation (The figure is for illustrative purposes only and does not reflect the actual sample dates used in the analysis):
 ![wfcv](outputs/figures/expanding_walk_forward_cv.jpg "Walk Forward CV")
 
 ---
