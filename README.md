@@ -109,9 +109,9 @@ In our study we used a double sigmoid transformation to emphasize strong convict
 $$
 f(x)=
 \begin{cases}
-0, & |x|\le d,\\[6pt]
-\sigma\!\big(k_{+}(x-d)\big)-\frac{1}{2}, & x>d,\\[6pt]
--\Big(\sigma\!\big(k_{-}(-x-d)\big)-\frac{1}{2}\Big), & x<-d,
+0, & |x|\le d\\
+\sigma\!\big(k_{+}(x-d)\big)-\frac{1}{2}, & x>d \\
+-\Big(\sigma\!\big(k_{-}(-x-d)\big)-\frac{1}{2}\Big) & x<-d,
 \end{cases}
 $$
 
