@@ -228,7 +228,7 @@ class s3Utils:
                 return pl.read_parquet(buf)
             return pd.read_parquet(buf, engine="pyarrow")
 
-        if file_type == "pickle":
+        if file_type == "pickle" or file_type == "pkl":
             return pickle.loads(buf.getvalue())
 
         raise ValueError(f"Unsupported file_type: {file_type}")

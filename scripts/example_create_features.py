@@ -1,4 +1,5 @@
 import pandas as pd
+import dataframe_image as dfi
 import polars as pl
 import time
 import matplotlib
@@ -352,18 +353,141 @@ plt.close()
 # with open("OOS_PRED.pkl", "rb") as f:
 #     op = pickle.load(f)
 #
-ot = s3Utils.pull_file_from_s3(
-    path="s3://alpha-in-analysts-storage/results/OOS_TRUE_all.pkl",
+opt = s3Utils.pull_file_from_s3(
+    path="s3://alpha-in-analysts-storage/results/OOS_PRED_tmp.pkl",
     file_type="pickle"
 )
-op["xgboost"]=opx["xgboost"]
+op["lightgbm"] = opt["lightgbm"]
+# op["elastic_net"]=opt["elastic_net"]
+# op["xgboost"]=opx["xgboost"]
 # op["mlp"] = opm["mlp"]
 # best_score_all_models_overtime.to_parquet("best_score_all_models_overtime.parquet")
 #
 # bsf = pd.concat([bs,bsm],axis=1)
-# s3Utils.push_object_to_s3(
-#     object_to_push=op,
-#     path="s3://alpha-in-analysts-storage/results/OOS_PRED_all.pkl",
-#     file_type="pickle"
-# )
+s3Utils.push_object_to_s3(
+    object_to_push=op,
+    path="s3://alpha-in-analysts-storage/results/OOS_PRED.pkl",
+    file_type="pickle"
+)
 
+
+# # Hyperparams all models overtime
+# # Plot best score all models overtime (validation)
+# for k,v in bp.items():
+#     plt.figure(figsize=(20, 12))
+#     plt.plot(v)
+#     plt.title(f"Optimal parameters overtime for model: {k}")
+#     plt.ylabel("Parameters")
+#     plt.ylim(top=2)
+#     plt.ylim(bottom=0)
+#     plt.xlabel("Date")
+#     plt.legend(v.columns)
+#     plt.grid(visible=True)
+#     plt.savefig(config.ROOT_DIR / "outputs" / "figures" / f"best_parameters_{k}_overtime.png")
+#     plt.close()
+#
+# features = bp[next(iter(bp))].columns
+# proportion_selected_features = pd.DataFrame(
+#     index=features,
+#     columns=bp.keys(),
+#     data=np.nan
+# )
+# for k,v in bp.items():
+#     df = v.dropna(how="all")
+#     is_present = round(100*(df[df!=0.0].mean(axis=0)),2)
+#     proportion_selected_features.loc[:,k]=is_present
+# proportion_selected_features["mean_models"] = round(proportion_selected_features.mean(axis=1),2)
+# proportion_selected_features = proportion_selected_features.sort_values(by="mean_models", ascending=False)
+# proportion_selected_features.insert(loc=0,column="rank",value=np.arange(1,len(proportion_selected_features)+1))
+# dfi.export(proportion_selected_features, config.ROOT_DIR/"outputs"/"figures"/"proportion_selected_features.png")
+#
+# mean_parameters = pd.DataFrame(
+#     index=features,
+#     columns=bp.keys(),
+#     data=np.nan
+# )
+# for k,v in bp.items():
+#     mean_parameters.loc[:,k]=round(v.mean(axis=0),2)
+# mean_parameters["mean_models"] = round(mean_parameters.mean(axis=1),2)
+# mean_parameters = mean_parameters.sort_values(by="mean_models", ascending=False)
+# mean_parameters.insert(loc=0,column="rank",value=np.arange(1,len(mean_parameters)+1))
+# dfi.export(mean_parameters, config.ROOT_DIR/"outputs"/"figures"/"mean_parameters.png")
+#
+# # Initialize container
+# dates = sorted(ot.keys())
+# models = list(op.keys())
+#
+# IC_df = pd.DataFrame(index=dates, columns=models, dtype=float)
+#
+# for model, preds_by_date in op.items():
+#     for date, y_pred in preds_by_date.items():
+#
+#         if date not in ot:
+#             continue
+#
+#         y_true = ot[date]
+#
+#         # Align safely on analyst_id
+#         df = pd.concat([y_true, y_pred], axis=1, join="inner")
+#         df.columns = ["y_true", "y_pred"]
+#
+#         if len(df) > 1:
+#             ic = df["y_true"].corr(df["y_pred"], method="spearman")
+#             IC_df.loc[date, model] = ic
+#
+# rolling_ic = IC_df.rolling(12, min_periods=1).mean()
+# plt.figure(figsize=(10, 6))
+# plt.plot(rolling_ic)
+# plt.title("Rolling 12m IC overtime per model")
+# plt.ylabel("IC")
+# plt.ylim(top=0.25)
+# plt.ylim(bottom=-0.15)
+# plt.xlabel("Date")
+# plt.legend(rolling_ic.columns)
+# plt.grid(visible=True)
+# plt.savefig(config.ROOT_DIR / "outputs" / "figures" / "ic_all_models_overtime.png")
+# plt.close()
+#
+# mean_ic = pd.DataFrame(round(100*IC_df.mean(axis=0),2), columns=["mean_ic"])
+# mean_ic = mean_ic.sort_values(by="mean_ic", ascending=False)
+# mean_ic.insert(loc=0, column="rank", value=np.arange(1,len(mean_ic)+1))
+# dfi.export(mean_ic, config.ROOT_DIR/"outputs"/"figures"/"mean_ic_all_models.png")
+#
+# # OOS RMSE
+# dates = sorted(ot.keys())
+# models = list(op.keys())
+#
+# RMSE_df = pd.DataFrame(index=dates, columns=models, dtype=float)
+#
+# for model, preds_by_date in op.items():
+#     for date, y_pred in preds_by_date.items():
+#
+#         if date not in ot:
+#             continue
+#
+#         y_true = ot[date]
+#
+#         # Align on analyst_id
+#         df = pd.concat([y_true, y_pred], axis=1, join="inner")
+#         df.columns = ["y_true", "y_pred"]
+#
+#         if len(df) > 0:
+#             rmse = np.sqrt(np.mean((df["y_true"] - df["y_pred"]) ** 2))
+#             RMSE_df.loc[date, model] = rmse
+#
+# plt.figure(figsize=(10, 6))
+# plt.plot(RMSE_df)
+# plt.title("OOS RMSE overtime per model")
+# plt.ylabel("OOS RMSE")
+# plt.ylim(top=2)
+# plt.ylim(bottom=0)
+# plt.xlabel("Date")
+# plt.legend(RMSE_df.columns)
+# plt.grid(visible=True)
+# plt.savefig(config.ROOT_DIR / "outputs" / "figures" / "oos_rmse_all_models_overtime.png")
+# plt.close()
+#
+# mean_oos_rmse = pd.DataFrame(round(RMSE_df.mean(axis=0),2), columns=["mean_ic"])
+# mean_oos_rmse = mean_oos_rmse.sort_values(by="mean_ic", ascending=True)
+# mean_oos_rmse.insert(loc=0, column="rank", value=np.arange(1,len(mean_oos_rmse)+1))
+# dfi.export(mean_oos_rmse, config.ROOT_DIR/"outputs"/"figures"/"oos_rmse_all_models.png")
