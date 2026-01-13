@@ -46,28 +46,28 @@ def main(
     # -------------------------
     if models is None:
         models = {
-            # Linear
-            "ols": lambda **kw: LinearRegression(**kw),
-            "ridge": lambda **kw: Ridge(**kw),
-            "lasso": lambda **kw: Lasso(**kw),
-            "elastic_net": lambda **kw: ElasticNet(**kw),
-            "huber": lambda **kw: HuberRegressor(**kw),
-
-            # Tree / Boosting
-            "random_forest": lambda **kw: RandomForestRegressor(n_jobs=1, **kw),
-            "xgboost": lambda **kw: XGBRegressor(
-                n_jobs=1,
-                objective="reg:squarederror",
-                verbosity=0,
-                **kw
-            ),
-            "lightgbm": lambda **kw: LGBMRegressor(
-                n_jobs=1,
-                objective="regression",
-                verbosity=-1,
-                **kw
-            ),
-            "hist_gb": lambda **kw: HistGradientBoostingRegressor(**kw),
+            # # Linear
+            # "ols": lambda **kw: LinearRegression(**kw),
+            # "ridge": lambda **kw: Ridge(**kw),
+            # "lasso": lambda **kw: Lasso(**kw),
+            # "elastic_net": lambda **kw: ElasticNet(**kw),
+            # "huber": lambda **kw: HuberRegressor(**kw),
+            #
+            # # Tree / Boosting
+            # "random_forest": lambda **kw: RandomForestRegressor(n_jobs=1, **kw),
+            # "xgboost": lambda **kw: XGBRegressor(
+            #     n_jobs=1,
+            #     objective="reg:squarederror",
+            #     verbosity=0,
+            #     **kw
+            # ),
+            # "lightgbm": lambda **kw: LGBMRegressor(
+            #     n_jobs=1,
+            #     objective="regression",
+            #     verbosity=-1,
+            #     **kw
+            # ),
+            # "hist_gb": lambda **kw: HistGradientBoostingRegressor(**kw),
 
             # NN
             "mlp": lambda **kw: MLPRegressor(**kw)
@@ -80,111 +80,113 @@ def main(
 
         hyperparams_all_combinations = {}
 
-        # =========================
-        # OLS
-        # =========================
-        hyperparams_all_combinations["ols"] = [{}]
-
-        # =========================
-        # Ridge
-        # =========================
-        hyperparams_all_combinations["ridge"] = []
-        for alpha in [0.01, 0.1, 1.0, 10.0]:
-            hyperparams_all_combinations["ridge"].append(
-                {"alpha": alpha}
-            )
-
-        # =========================
-        # Lasso
-        # =========================
-        hyperparams_all_combinations["lasso"] = []
-        for alpha in [0.001, 0.01, 0.1, 1.0]:
-            hyperparams_all_combinations["lasso"].append(
-                {"alpha": alpha}
-            )
-
-        # =========================
-        # Elastic Net
-        # =========================
-        hyperparams_all_combinations["elastic_net"] = []
-        for alpha in [0.01, 0.1, 1.0, 10.0]:
-            for l1_ratio in [0.1, 0.5, 0.9]:
-                hyperparams_all_combinations["elastic_net"].append(
-                    {"alpha": alpha, "l1_ratio": l1_ratio}
-                )
-
-
-        # =========================
-        # Huber Regressor
-        # =========================
-        hyperparams_all_combinations["huber"] = []
-        for epsilon in [1.1, 1.35, 1.5]:
-            for alpha in [0.0001, 0.001, 0.01]:
-                hyperparams_all_combinations["huber"].append(
-                    {
-                        "epsilon": epsilon,
-                        "alpha": alpha,
-                        "max_iter": 10_000,
-                    }
-                )
-
-        # =========================
-        # Random Forest
-        # =========================
-        hyperparams_all_combinations["random_forest"] = []
-        for n_estimators in [100, 200, 300]:
-            for max_depth in [None, 10, 20]:
-                for min_samples_split in [2, 5]:
-                    hyperparams_all_combinations["random_forest"].append(
-                        {
-                            "n_estimators": n_estimators,
-                            "max_depth": max_depth,
-                            "min_samples_split": min_samples_split,
-                        }
-                    )
-
-        # =========================
-        # XGBoost
-        # =========================
-        hyperparams_all_combinations["xgboost"] = []
-        for n_estimators in [100, 200, 300]:
-            for learning_rate in [0.05, 0.1]:
-                for max_depth in [3, 5]:
-                    for subsample in [0.8, 1.0]:
-                        hyperparams_all_combinations["xgboost"].append(
-                            {
-                                "n_estimators": n_estimators,
-                                "learning_rate": learning_rate,
-                                "max_depth": max_depth,
-                                "subsample": subsample,
-                            }
-                        )
-
-        # =========================
-        # LightGBM
-        # =========================
-        hyperparams_all_combinations["lightgbm"] = []
-        for num_leaves in [15, 31]:
-            for learning_rate in [0.01, 0.05, 0.1]:
-                for max_depth in [-1, 5, 10]:
-                    hyperparams_all_combinations["lightgbm"].append(
-                        {
-                            "num_leaves": num_leaves,
-                            "learning_rate": learning_rate,
-                            "max_depth": max_depth,
-                            "n_estimators": 300,
-                            "min_child_samples": 20,
-                            "subsample": 0.8,
-                            "colsample_bytree": 0.8,
-                            "random_state": 42,
-                        }
-                    )
+        # # =========================
+        # # OLS
+        # # =========================
+        # hyperparams_all_combinations["ols"] = [{}]
+        #
+        # # =========================
+        # # Ridge
+        # # =========================
+        # hyperparams_all_combinations["ridge"] = []
+        # for alpha in [0.01, 0.1, 1.0, 10.0]:
+        #     hyperparams_all_combinations["ridge"].append(
+        #         {"alpha": alpha}
+        #     )
+        #
+        # # =========================
+        # # Lasso
+        # # =========================
+        # hyperparams_all_combinations["lasso"] = []
+        # for alpha in [0.001, 0.01, 0.1, 1.0]:
+        #     hyperparams_all_combinations["lasso"].append(
+        #         {"alpha": alpha}
+        #     )
+        #
+        # # =========================
+        # # Elastic Net
+        # # =========================
+        # hyperparams_all_combinations["elastic_net"] = []
+        # for alpha in [0.01, 0.1, 1.0, 10.0]:
+        #     for l1_ratio in [0.1, 0.5, 0.9]:
+        #         hyperparams_all_combinations["elastic_net"].append(
+        #             {"alpha": alpha, "l1_ratio": l1_ratio}
+        #         )
+        #
+        #
+        # # =========================
+        # # Huber Regressor
+        # # =========================
+        # hyperparams_all_combinations["huber"] = []
+        # for epsilon in [1.1, 1.35, 1.5]:
+        #     for alpha in [0.0001, 0.001, 0.01]:
+        #         hyperparams_all_combinations["huber"].append(
+        #             {
+        #                 "epsilon": epsilon,
+        #                 "alpha": alpha,
+        #                 "max_iter": 10_000,
+        #             }
+        #         )
+        #
+        # # =========================
+        # # Random Forest
+        # # =========================
+        # hyperparams_all_combinations["random_forest"] = []
+        # for n_estimators in [100, 200, 300]:
+        #     for max_depth in [None, 10, 20]:
+        #         for min_samples_split in [2, 5]:
+        #             hyperparams_all_combinations["random_forest"].append(
+        #                 {
+        #                     "n_estimators": n_estimators,
+        #                     "max_depth": max_depth,
+        #                     "min_samples_split": min_samples_split,
+        #                 }
+        #             )
+        #
+        # # =========================
+        # # XGBoost
+        # # =========================
+        # hyperparams_all_combinations["xgboost"] = []
+        # for n_estimators in [100, 200, 300]:
+        #     for learning_rate in [0.05, 0.1]:
+        #         for max_depth in [3, 5]:
+        #             for subsample in [0.8, 1.0]:
+        #                 hyperparams_all_combinations["xgboost"].append(
+        #                     {
+        #                         "n_estimators": n_estimators,
+        #                         "learning_rate": learning_rate,
+        #                         "max_depth": max_depth,
+        #                         "subsample": subsample,
+        #                     }
+        #                 )
+        #
+        # # =========================
+        # # LightGBM
+        # # =========================
+        # hyperparams_all_combinations["lightgbm"] = []
+        # for num_leaves in [15, 31]:
+        #     for learning_rate in [0.01, 0.05, 0.1]:
+        #         for max_depth in [-1, 5, 10]:
+        #             hyperparams_all_combinations["lightgbm"].append(
+        #                 {
+        #                     "num_leaves": num_leaves,
+        #                     "learning_rate": learning_rate,
+        #                     "max_depth": max_depth,
+        #                     "n_estimators": 300,
+        #                     "min_child_samples": 20,
+        #                     "subsample": 0.8,
+        #                     "colsample_bytree": 0.8,
+        #                     "random_state": 42,
+        #                 }
+        #             )
 
         # =========================
         # Neural Network (MLP)
         # =========================
         hyperparams_all_combinations["mlp"] = []
-        for hidden_layer_sizes in [(50,), (50, 50), (32,16,8)]:
+        # for hidden_layer_sizes in [(50,), (50, 50), (32,16,8)]:
+        # for hidden_layer_sizes in [(16,), (16, 8)]:
+        for hidden_layer_sizes in [(8,), (8, 8)]:
             for activation in ["relu", "tanh"]:
                 for alpha in [0.0001, 0.001]:
                     hyperparams_all_combinations["mlp"].append(

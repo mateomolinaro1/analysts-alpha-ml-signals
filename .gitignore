@@ -25,6 +25,10 @@ miscellanous
 outputs/logs/*
 !outputs/logs/.gitkeep
 
+outputs/figures/*
+!outputs/figures/.gitkeep
+outputs/backtest_RANDOM_FOREST_2019-01_2024-12_2026-01-03.xlsx
+
 #outputs/reports/*
 #!outputs/reports/.gitkeep
 

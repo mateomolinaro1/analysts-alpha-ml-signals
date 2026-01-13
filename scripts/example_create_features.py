@@ -357,7 +357,7 @@ opt = s3Utils.pull_file_from_s3(
     path="s3://alpha-in-analysts-storage/results/OOS_PRED_tmp.pkl",
     file_type="pickle"
 )
-op["lightgbm"] = opt["lightgbm"]
+op["mlp"] = opt["mlp"]
 # op["elastic_net"]=opt["elastic_net"]
 # op["xgboost"]=opx["xgboost"]
 # op["mlp"] = opm["mlp"]
